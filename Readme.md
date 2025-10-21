@@ -1,10 +1,8 @@
-<img src="https://images2.imgbox.com/61/17/YLrfUgAj_o.jpeg" alt="du.pe logo" width="200" height="200" />
+<p align="center">
+  <img src="https://images2.imgbox.com/61/17/YLrfUgAj_o.jpeg" alt="du.pe logo" width="250" height="250" />
+</p>
 
-
-# du.pe
-
-
-Simple, Fast & Lightweight Torrent Server ⚡📦
+# du.pe - Simple, Fast & Lightweight Torrent Server ⚡📦
 
 A **self-hosted torrent-based file manager and media player**, similar to Put.io — fast, minimal, and elegant.  
 Add torrents, monitor downloads, and instantly stream videos through a clean web interface! 🖥️🎬
