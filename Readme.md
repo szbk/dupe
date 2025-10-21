@@ -105,7 +105,6 @@ docker compose up -d --build
 ## 🛣️ Roadmap
 
 - 🔐 Authentication (JWT or session-based)  
-- 🧩 TheMovieDB / TVDB / MusicBrainz integrations  
 - 🎛️ Advanced player features (subtitle selection, quality control)  
 - 🧹 File management, trash bin, and history  
 - 🧪 Automated testing and CI setup
