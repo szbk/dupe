@@ -1,4 +1,8 @@
+<img src="https://images2.imgbox.com/61/17/YLrfUgAj_o.jpeg" alt="du.pe logo" width="200" height="200" />
+
+
 # du.pe
+
 
 Simple, Fast & Lightweight Torrent Server ⚡📦
 
