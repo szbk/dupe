@@ -66,10 +66,10 @@
     await list();
   }
 
-function streamURL(hash, index = 0) {
-  const token = localStorage.getItem("token");
-  return `${API}/stream/${hash}?index=${index}&token=${token}`;
-}
+  function streamURL(hash, index = 0) {
+    const token = localStorage.getItem("token");
+    return `${API}/stream/${hash}?index=${index}&token=${token}`;
+  }
 
   function formatSpeed(bytesPerSec) {
     if (!bytesPerSec || bytesPerSec <= 0) return "0 MB/s";
@@ -221,8 +221,8 @@ function streamURL(hash, index = 0) {
   }
 
   onMount(() => {
-    list();        // 🔒 token'lı liste çekimi
-    wsConnect();   // 🔒 token'lı WebSocket
+    list(); // 🔒 token'lı liste çekimi
+    wsConnect(); // 🔒 token'lı WebSocket
     const slider = document.querySelector(".volume-slider");
     if (slider) {
       slider.value = volume;
@@ -234,7 +234,6 @@ function streamURL(hash, index = 0) {
 </script>
 
 <!-- 💡 HTML ve stil kısmı aynı kalıyor -->
-
 
 <section class="files">
   <h2>Transfers</h2>
@@ -266,7 +265,9 @@ function streamURL(hash, index = 0) {
           {#if t.thumbnail}
             <img src={`${API}${t.thumbnail}`} alt="thumb" class="thumb" />
           {:else}
-            <div class="thumb placeholder">📷</div>
+            <div class="thumb placeholder">
+              <i class="fa-regular fa-image"></i>
+            </div>
           {/if}
 
           <div class="torrent-info">
@@ -383,7 +384,10 @@ function streamURL(hash, index = 0) {
               </button>
 
               <a
-                href={streamURL(selectedVideo.infoHash, selectedVideo.fileIndex)}
+                href={streamURL(
+                  selectedVideo.infoHash,
+                  selectedVideo.fileIndex
+                )}
                 download={selectedVideo.name}
                 class="control-btn"
                 title="Download"
