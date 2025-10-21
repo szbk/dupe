@@ -7,7 +7,8 @@ import path from "path";
 import mime from "mime-types";
 import { WebSocketServer } from "ws";
 import { fileURLToPath } from "url";
-import { exec } from "child_process"; // 🆕 ffmpeg çağırmak için
+import { exec } from "child_process";
+import crypto from "crypto"; // 🔒 basit token üretimi için
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/downloads", express.static(DOWNLOAD_DIR));
+
 
 // --- En uygun video dosyasını seç ---
 function pickBestVideoFile(torrent) {
@@ -67,8 +69,32 @@ function snapshot() {
   );
 }
 
+// --- Basit kimlik doğrulama sistemi ---
+const USERNAME = process.env.USERNAME
+const PASSWORD = process.env.PASSWORD
+let activeTokens = new Set();
+
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body;
+  if (username === USERNAME && password === PASSWORD) {
+    const token = crypto.randomBytes(24).toString("hex");
+    activeTokens.add(token);
+    return res.json({ token });
+  }
+  res.status(401).json({ error: "Invalid credentials" });
+});
+
+function requireAuth(req, res, next) {
+  const token =
+    req.headers.authorization?.split(" ")[1] || req.query.token;
+  if (!token || !activeTokens.has(token))
+    return res.status(401).json({ error: "Unauthorized" });
+  next();
+}
+
+
 // --- Torrent veya magnet ekleme ---
-app.post("/api/transfer", upload.single("torrent"), (req, res) => {
+app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
   try {
     let source = req.body.magnet;
     if (req.file) source = fs.readFileSync(req.file.path);
@@ -148,12 +174,12 @@ app.get("/thumbnail/:hash", (req, res) => {
 });
 
 // --- Torrentleri listele ---
-app.get("/api/torrents", (req, res) => {
+app.get("/api/torrents", requireAuth, (req, res) => {
   res.json(snapshot());
 });
 
 // --- Seçili dosya değiştir ---
-app.post("/api/torrents/:hash/select/:index", (req, res) => {
+app.post("/api/torrents/:hash/select/:index", requireAuth, (req, res) => {
   const entry = torrents.get(req.params.hash);
   if (!entry) return res.status(404).json({ error: "torrent bulunamadı" });
   entry.selectedIndex = Number(req.params.index) || 0;
@@ -161,7 +187,7 @@ app.post("/api/torrents/:hash/select/:index", (req, res) => {
 });
 
 // --- Torrent silme (disk dahil) ---
-app.delete("/api/torrents/:hash", (req, res) => {
+app.delete("/api/torrents/:hash", requireAuth, (req, res) => {
   const entry = torrents.get(req.params.hash);
   if (!entry) return res.status(404).json({ error: "torrent bulunamadı" });
 
@@ -180,7 +206,7 @@ app.delete("/api/torrents/:hash", (req, res) => {
   });
 });
 
-app.get("/media/:path(*)", (req, res) => {
+app.get("/media/:path(*)", requireAuth, (req, res) => {
   const fullPath = path.join(DOWNLOAD_DIR, req.params.path);
   if (!fs.existsSync(fullPath)) return res.status(404).send("File not found");
 
@@ -213,7 +239,7 @@ app.get("/media/:path(*)", (req, res) => {
 });
 
 // --- 📁 Dosya gezgini: /downloads altındaki dosyaları listele ---
-app.get("/api/files", (req, res) => {
+app.get("/api/files", requireAuth, (req, res) => {
   const walk = (dir) => {
     let result = [];
     const list = fs.readdirSync(dir, { withFileTypes: true });
@@ -258,7 +284,7 @@ app.get("/api/files", (req, res) => {
 });
 
 // --- Stream endpoint ---
-app.get("/stream/:hash", (req, res) => {
+app.get("/stream/:hash", requireAuth, (req, res) => {
   const entry = torrents.get(req.params.hash);
   if (!entry) return res.status(404).end();
 

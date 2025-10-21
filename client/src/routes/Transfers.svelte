@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { API } from "../utils/api.js";
+  import { API, apiFetch } from "../utils/api.js"; // ✅ apiFetch eklendi
 
   let torrents = [];
   let ws;
@@ -19,9 +19,10 @@
   let duration = 0;
   let volume = 1;
 
-  // --- WebSocket & API
+  // --- WebSocket & API ---
   function wsConnect() {
-    const url = API.replace("http", "ws");
+    const token = localStorage.getItem("token"); // 🔒 token ekle
+    const url = `${API.replace("http", "ws")}?token=${token}`;
     ws = new WebSocket(url);
     ws.onmessage = (e) => {
       const d = JSON.parse(e.data);
@@ -30,7 +31,8 @@
   }
 
   async function list() {
-    const r = await fetch(`${API}/api/torrents`);
+    const r = await apiFetch("/api/torrents"); // ✅ fetch yerine apiFetch
+    if (!r.ok) return;
     torrents = await r.json();
   }
 
@@ -39,18 +41,18 @@
     if (!f) return;
     const fd = new FormData();
     fd.append("torrent", f);
-    await fetch(`${API}/api/transfer`, { method: "POST", body: fd });
+    await apiFetch("/api/transfer", { method: "POST", body: fd }); // ✅
     await list();
   }
 
   async function addMagnet() {
     const m = prompt("Magnet linki:");
     if (!m) return;
-    await fetch(`${API}/api/transfer`, {
+    await apiFetch("/api/transfer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ magnet: m })
-    });
+    }); // ✅
     await list();
   }
 
@@ -60,13 +62,14 @@
 
   async function removeTorrent(hash) {
     if (!confirm("Bu transferi silmek istediğine emin misin?")) return;
-    await fetch(`${API}/api/torrents/${hash}`, { method: "DELETE" });
+    await apiFetch(`/api/torrents/${hash}`, { method: "DELETE" }); // ✅
     await list();
   }
 
-  function streamURL(hash) {
-    return `${API}/stream/${hash}`;
-  }
+function streamURL(hash, index = 0) {
+  const token = localStorage.getItem("token");
+  return `${API}/stream/${hash}?index=${index}&token=${token}`;
+}
 
   function formatSpeed(bytesPerSec) {
     if (!bytesPerSec || bytesPerSec <= 0) return "0 MB/s";
@@ -74,7 +77,6 @@
   }
 
   function openModal(t) {
-    // torrent içinde seçilmiş dosya var mı?
     const selectedFile =
       t.files?.find((f) => f.index === t.selectedIndex) || t.files?.[0];
     if (!selectedFile) {
@@ -96,7 +98,7 @@
     subtitleURL = null;
   }
 
-  // --- Altyazı işlemleri ---
+  // --- Altyazı işlemleri (hiç değişmedi) ---
   function detectSubtitleLang(text) {
     const lower = (text || "").toLowerCase();
     if (lower.includes("ş") || lower.includes("ğ") || lower.includes("ı"))
@@ -136,17 +138,14 @@
   function handleSubtitleUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const ext = file.name.split(".").pop().toLowerCase();
     const reader = new FileReader();
-
     reader.onload = (ev) => {
       const decoder = new TextDecoder("utf-8");
       const content =
         typeof ev.target.result === "string"
           ? ev.target.result
           : decoder.decode(ev.target.result);
-
       const detected = detectSubtitleLang(content);
       subtitleLang = detected.code;
       subtitleLabel = detected.label;
@@ -166,7 +165,6 @@
         alert("Yalnızca .srt veya .vtt dosyaları destekleniyor.");
       }
     };
-
     reader.readAsArrayBuffer(file);
   }
 
@@ -203,7 +201,6 @@
     if (!videoEl) return;
     const val = parseFloat(e.target.value);
     videoEl.volume = val;
-    // Slider dolum rengini CSS değişkeniyle güncelle
     e.target.style.setProperty("--fill", (val || 0) * 100);
   }
 
@@ -224,20 +221,20 @@
   }
 
   onMount(() => {
-    list();
-    wsConnect();
-
-    // volume slider başlangıç dolumu
+    list();        // 🔒 token'lı liste çekimi
+    wsConnect();   // 🔒 token'lı WebSocket
     const slider = document.querySelector(".volume-slider");
     if (slider) {
-      slider.value = volume; // 1
+      slider.value = volume;
       slider.style.setProperty("--fill", slider.value * 100);
     }
-
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   });
 </script>
+
+<!-- 💡 HTML ve stil kısmı aynı kalıyor -->
+
 
 <section class="files">
   <h2>Transfers</h2>
@@ -339,7 +336,7 @@
       <div class="custom-player">
         <video
           bind:this={videoEl}
-          src={`${API}/stream/${selectedVideo.infoHash}?index=${selectedVideo.fileIndex}`}
+          src={streamURL(selectedVideo.infoHash, selectedVideo.fileIndex)}
           class="video-element"
           on:timeupdate={updateProgress}
           on:loadedmetadata={() => {
@@ -386,7 +383,7 @@
               </button>
 
               <a
-                href={streamURL(selectedVideo.infoHash)}
+                href={streamURL(selectedVideo.infoHash, selectedVideo.fileIndex)}
                 download={selectedVideo.name}
                 class="control-btn"
                 title="Download"

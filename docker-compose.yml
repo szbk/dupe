@@ -9,3 +9,7 @@ services:
     volumes:
       - ./downloads:/app/server/downloads
     restart: unless-stopped
+    # Login credentials for basic auth
+    environment:
+      USERNAME: admin
+      PASSWORD: admin

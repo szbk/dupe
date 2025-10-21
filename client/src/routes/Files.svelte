@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { API } from "../utils/api.js";
+  import { API, apiFetch } from "../utils/api.js";
   import { cleanFileName } from "../utils/filename.js";
 
   let files = [];
@@ -17,9 +17,21 @@
   let duration = 0;
   let volume = 1;
 
-  // 📂 Dosyaları yükle
+  // ✅ REACTIVE: selectedVideo güvenli kullanımlar
+  $: selectedName = selectedVideo?.name ?? "";
+  $: encName = encodeURIComponent(selectedName);
+
+  // ✅ Token'lı video URL'ini fonksiyonla üret (başta çağrılmasın)
+  function getVideoURL() {
+    if (!selectedName) return "";
+    const token = localStorage.getItem("token");
+    return `${API}/media/${encName}?token=${token}`;
+  }
+
+  // 📂 Dosyaları yükle (tokenlı)
   async function loadFiles() {
-    const r = await fetch(`${API}/api/files`);
+    const r = await apiFetch("/api/files");
+    if (!r.ok) return;
     files = await r.json();
   }
 
@@ -102,14 +114,10 @@
       if (ext === "srt") {
         const vttText =
           "\uFEFFWEBVTT\n\n" + content.replace(/\r+/g, "").replace(/,/g, ".");
-        const blob = new Blob([vttText], {
-          type: "text/vtt;charset=utf-8"
-        });
+        const blob = new Blob([vttText], { type: "text/vtt;charset=utf-8" });
         subtitleURL = URL.createObjectURL(blob);
       } else if (ext === "vtt") {
-        const blob = new Blob([content], {
-          type: "text/vtt;charset=utf-8"
-        });
+        const blob = new Blob([content], { type: "text/vtt;charset=utf-8" });
         subtitleURL = URL.createObjectURL(blob);
       } else {
         alert("Yalnızca .srt veya .vtt dosyaları destekleniyor.");
@@ -167,14 +175,15 @@
   <div class="modal-overlay" on:click={closeModal}>
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
-        <div class="video-title">{selectedVideo.name}</div>
+        <div class="video-title">{selectedName}</div>
         <button class="close-btn" on:click={closeModal}>✕</button>
       </div>
 
       <div class="custom-player">
+        <!-- ✅ selectedVideo yokken boş src -->
         <video
           bind:this={videoEl}
-          src={`${API}/media/${encodeURIComponent(selectedVideo.name)}`}
+          src={getVideoURL()}
           class="video-element"
           on:timeupdate={updateProgress}
           on:loadedmetadata={() => {
@@ -200,9 +209,11 @@
         <div class="controls">
           <div class="top-controls">
             <button class="control-btn" on:click={togglePlay}>
-              {#if isPlaying}<i class="fa-solid fa-pause"></i>{:else}<i
-                  class="fa-solid fa-play"
-                ></i>{/if}
+              {#if isPlaying}
+                <i class="fa-solid fa-pause"></i>
+              {:else}
+                <i class="fa-solid fa-play"></i>
+              {/if}
             </button>
 
             <div class="right-controls">
@@ -220,9 +231,10 @@
                 <i class="fa-solid fa-expand"></i>
               </button>
 
+              <!-- ✅ selectedVideo yokken '#' -->
               <a
-                href={`${API}/downloads/${selectedVideo.name}`}
-                download={selectedVideo.name}
+                href={selectedName ? `${API}/downloads/${selectedName}` : "#"}
+                download={selectedName || undefined}
                 class="control-btn"
                 title="Download"
               >
@@ -268,6 +280,7 @@
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 20px;
   }
+
   .media-card {
     background: #f5f5f5;
     border-radius: 10px;
@@ -278,14 +291,17 @@
     transition: transform 0.2s;
     cursor: pointer;
   }
+
   .media-card:hover {
     transform: translateY(-4px);
   }
+
   .thumb {
     width: 100%;
     height: 150px;
     object-fit: cover;
   }
+
   .thumb.placeholder {
     display: flex;
     align-items: center;
@@ -293,12 +309,14 @@
     font-size: 42px;
     background: #ddd;
   }
+
   .info {
     padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
+
   .name {
     font-weight: 600;
     font-size: 14px;
@@ -306,6 +324,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+
   .size {
     font-size: 12px;
     color: #666;
@@ -376,6 +395,7 @@
     border: none;
     outline: none;
   }
+
   .video-element:focus {
     outline: none !important;
     box-shadow: none !important;
@@ -405,6 +425,7 @@
     cursor: pointer;
     transition: opacity 0.2s;
   }
+
   .control-btn:hover {
     opacity: 0.7;
   }
@@ -415,7 +436,7 @@
     gap: 10px;
   }
 
-  /* === Ses Seviyesi Kaydırıcısı === */
+  /* === Ses Kaydırıcısı === */
   .volume-slider {
     -webkit-appearance: none;
     width: 100px;
@@ -436,6 +457,7 @@
     border-radius: 2px;
     background: transparent;
   }
+
   .volume-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 12px;
@@ -446,9 +468,11 @@
     margin-top: -4px;
     transition: transform 0.2s ease;
   }
+
   .volume-slider::-webkit-slider-thumb:hover {
     transform: scale(1.3);
   }
+
   .volume-slider::-moz-range-thumb {
     width: 12px;
     height: 12px;
@@ -457,9 +481,11 @@
     cursor: pointer;
     transition: transform 0.2s ease;
   }
+
   .volume-slider::-moz-range-thumb:hover {
     transform: scale(1.3);
   }
+
   .volume-slider::-moz-range-progress {
     height: 4px;
     background: #ff3b30;
@@ -500,25 +526,31 @@
     .gallery {
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
+
     .modal-content {
       width: 95%;
       height: 70%;
       border-radius: 8px;
     }
+
     .controls {
       padding: 6px 10px;
       gap: 6px;
     }
+
     .volume-slider {
       width: 70px;
     }
+
     .time {
       font-size: 11px;
       min-width: 70px;
     }
+
     .video-title {
       font-size: 14px;
     }
+
     .close-btn {
       font-size: 20px;
     }
@@ -529,9 +561,11 @@
       width: 98%;
       height: 75%;
     }
+
     .volume-slider {
       width: 50px;
     }
+
     .bottom-controls {
       flex-direction: column;
       align-items: stretch;
