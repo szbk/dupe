@@ -1,4 +1,6 @@
-# dupe — Simple, Fast & Lightweight Torrent Server ⚡📦
+# du.pe
+
+Simple, Fast & Lightweight Torrent Server ⚡📦
 
 A **self-hosted torrent-based file manager and media player**, similar to Put.io — fast, minimal, and elegant.  
 Add torrents, monitor downloads, and instantly stream videos through a clean web interface! 🖥️🎬
