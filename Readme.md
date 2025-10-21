@@ -69,22 +69,7 @@ docker compose up -d --build
 ```
 
 **Default Ports:**
-- Server (API): `http://localhost:3001`
-- Client (UI): `http://localhost:5173`
-
----
-
-## ⚙️ Environment Variables
-
-### Client
-| Variable | Description |
-|-----------|--------------|
-| `VITE_API` | Backend API root URL (e.g., `http://localhost:3001`) |
-
-### Server
-| Variable | Description |
-|-----------|--------------|
-| `PORT` | API port (default: `3001`) |
+- RUN: `http://localhost:3001`
 
 ---
 
