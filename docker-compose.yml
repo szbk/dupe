@@ -11,5 +11,5 @@ services:
     restart: unless-stopped
     # Login credentials for basic auth
     environment:
-      USERNAME: admin
-      PASSWORD: admin
+      USERNAME: ${USERNAME}
+      PASSWORD: ${PASSWORD}
