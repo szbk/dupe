@@ -300,6 +300,19 @@ console.log("📂 Download path:", DOWNLOAD_DIR);
 const server = app.listen(PORT, () =>
   console.log(`✅ WebTorrent server ${PORT} portunda çalışıyor`)
 );
+
+// --- ✅ Client build (frontend) dosyalarını sun ---
+const publicDir = path.join(__dirname, "public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+
+  // Frontend route'larını index.html'e yönlendir
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+}
+
 const wss = new WebSocketServer({ server });
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "progress", torrents: snapshot() }));
