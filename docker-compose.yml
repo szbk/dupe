@@ -1,0 +1,32 @@
+version: "3.9"
+
+networks:
+  dupe_network:
+    driver: bridge
+
+services:
+  server:
+    build: ./server
+    container_name: dupe-server
+    ports:
+      - "3001:3001"
+    networks:
+      - dupe_network
+    volumes:
+      - ./downloads:/app/downloads
+    restart: unless-stopped
+
+  client:
+    build: ./client
+    container_name: dupe-client
+    depends_on:
+      - server
+    ports:
+      - "5173:5173"
+    networks:
+      - dupe_network
+    volumes:
+      - ./downloads:/app/downloads
+    environment:
+      - VITE_API=http://localhost:3001
+    restart: unless-stopped

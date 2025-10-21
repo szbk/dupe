@@ -1,0 +1,322 @@
+:root {
+  --yellow: #f5b333;
+  --yellow-dark: #e2a62f;
+  --sidebar: #f4f4f4;
+  --border: #e5e5e5;
+  --muted: #666;
+  --green: #4caf50;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, sans-serif;
+  color: #222;
+  background: #fff;
+}
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100%;
+}
+/* Sidebar */
+.sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.sidebar .logo {
+  padding: 12px 16px;
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 0.5px;
+}
+.sidebar .menu {
+  padding-top: 6px;
+}
+.sidebar .menu .item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: #222;
+  cursor: pointer;
+  text-decoration: none;
+}
+.sidebar .menu .item.active {
+  background: #fff;
+  border-left: 3px solid var(--yellow);
+}
+.sidebar .menu .item .icon {
+  width: 18px;
+  text-align: center;
+  color: #333;
+}
+/* Content */
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f8f8;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+}
+.btn-primary {
+  background: var(--yellow);
+  border: 1px solid var(--yellow-dark);
+  color: #222;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+/* Files */
+.files {
+  margin: 0 16px 16px 16px;
+  flex: 1;
+  border-top: 2px solid #f0c24d;
+  padding-top: 14px;
+}
+.files h2 {
+  margin: 0 0 10px 0;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 260px;
+  gap: 10px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+}
+.create-folder {
+  background: var(--yellow);
+  border: 1px solid var(--yellow-dark);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* Transfers Page */
+.torrent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.torrent:last-child {
+  border-bottom: none;
+}
+.progress {
+  height: 8px;
+  background: #eee;
+  border-radius: 99px;
+  overflow: hidden;
+  flex: 1;
+}
+.progress > div {
+  height: 100%;
+  background: var(--green);
+  transition: width 0.3s;
+}
+.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* ====== Responsive & Off-Canvas Sidebar (EKLENDİ) ====== */
+
+/* Hamburger butonunu varsayılan gizle; mobilde göstereceğiz */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #333;
+  cursor: pointer;
+}
+
+/* Sidebar arkası için tıklanabilir backdrop (mobilde sidebar açıkken) */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 999; /* sidebar’ın üstünde */
+}
+.backdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Tablet ve aşağısında grid tek sütun; sidebar off-canvas olur */
+@media (max-width: 768px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -240px;
+    width: 220px;
+    height: 100%;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    transition: left 0.25s ease;
+    z-index: 1000;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* Genel içerik kenar boşluklarını sıkılaştır */
+  .files {
+    margin: 0 10px 14px 10px;
+    padding-top: 12px;
+  }
+
+  /* Transfers ve diğer sayfalar için liste öğelerini dikeyleştir */
+  .torrent {
+    /* Transfers’teki kutular */
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+  .thumb {
+    width: 100% !important;
+    height: 180px !important;
+  }
+  .torrent-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .torrent-hash {
+    word-break: break-word;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .file-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .progress-text {
+    text-align: left;
+    font-size: 12px;
+  }
+
+  /* Butonlar eş görünsün ve kolay dokunulsun */
+  .btn-primary {
+    flex: 1 1 auto;
+    justify-content: center;
+    height: 36px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* Modal video oynatıcı mobil uyum */
+  .modal-content {
+    width: 95% !important;
+    height: 72% !important;
+    border-radius: 10px;
+  }
+  .controls {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .volume-slider {
+    width: 70px;
+  }
+  .time {
+    font-size: 12px;
+    min-width: 78px;
+  }
+}
+
+/* === Sidebar Hover & Active Effects === */
+
+/* Hover efekti: hafif gri arka plan */
+.sidebar .menu .item:hover {
+  background: #f0f0f0;
+  color: #000;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* Aktif item: Daha koyu gri arka plan */
+.sidebar .menu .item.active {
+  background: #e5e5e5; /* aktif olan menü item */
+  font-weight: 600;
+  color: #000;
+}
+
+/* Hover ve aktif durumlarda ikon da koyulaşsın */
+.sidebar .menu .item:hover .icon,
+.sidebar .menu .item.active .icon {
+  color: #000;
+}
+
+/* Daha küçük telefonlar */
+@media (max-width: 480px) {
+  .btn-primary {
+    font-size: 12px;
+    padding: 8px 10px;
+    height: 34px;
+  }
+  .torrent-hash {
+    font-size: 11px;
+  }
+  .modal-content {
+    width: 98% !important;
+    height: 76% !important;
+  }
+  .volume-slider {
+    width: 56px;
+  }
+  .bottom-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+}

@@ -1,0 +1,69 @@
+# Node modules
+/node_modules/
+jspm_packages/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids *.pid *.seed *.pid.lock
+
+# Coverage directory
+.nyc_output/
+coverage/
+lcov-report/
+
+# Environment variables
+.env
+.env.*.local
+!.env.example
+
+# Build / output directories
+/dist/
+/build/
+/output/
+/. svelte-kit/
+.svelte-kit/
+.vite/
+.tmp/
+.cache/
+
+# Docker files / volumes
+docker-compose.override.yml
+docker-compose.*.yml
+docker/*-volume/
+docker/*-data/
+*.tar
+*.img
+
+# OS / IDE stuff
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Media / Download directories (depending on your setup)
+downloads/
+movie/movieData/
+movie/movieData/**/subtitles/
+movie/movieData/**/poster.jpg
+movie/movieData/**/backdrop.jpg
+
+# Torrent / upload temp files
+/uploads/
+/uploads/*
+*.torrent
+*.part
+*.temp
+
+# Other sensitive files
+/key.pem
+/cert.pem
+*.log
