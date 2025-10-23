@@ -1,0 +1,10 @@
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uzantılar
+nfo
+srt
+txt
+vtt

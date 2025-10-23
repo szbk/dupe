@@ -242,6 +242,36 @@ app.get("/media/:path(*)", requireAuth, (req, res) => {
 
 // --- 📁 Dosya gezgini (🆕 type ve url alanları eklendi; resim thumb'ı) ---
 app.get("/api/files", requireAuth, (req, res) => {
+  // --- 🧩 .ignoreFiles içeriğini oku ---
+  let ignoreList = [];
+  const ignorePath = path.join(__dirname, ".ignoreFiles");
+
+  if (fs.existsSync(ignorePath)) {
+    try {
+      const raw = fs.readFileSync(ignorePath, "utf-8");
+      ignoreList = raw
+        .split("\n")
+        .map((l) => l.trim().toLowerCase())
+        .filter((l) => l && !l.startsWith("#"));
+    } catch (err) {
+      console.warn("⚠️ .ignoreFiles okunamadı:", err.message);
+    }
+  }
+
+  // --- 🔍 Yardımcı fonksiyon: dosya ignoreList’te mi? ---
+  const isIgnored = (name) => {
+    const lower = name.toLowerCase();
+    const ext = path.extname(lower).replace(".", "");
+    return ignoreList.some(
+      (ignored) =>
+        lower === ignored ||
+        lower.endsWith(ignored) ||
+        lower.endsWith(`.${ignored}`) ||
+        ext === ignored.replace(/^\./, "")
+    );
+  };
+
+  // --- 📁 Klasörleri dolaş ---
   const walk = (dir) => {
     let result = [];
     const list = fs.readdirSync(dir, { withFileTypes: true });
@@ -249,6 +279,9 @@ app.get("/api/files", requireAuth, (req, res) => {
     for (const entry of list) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(DOWNLOAD_DIR, full);
+
+      // 🔥 Ignore kontrolü (hem dosya hem klasör için)
+      if (isIgnored(entry.name) || isIgnored(rel)) continue;
 
       if (entry.isDirectory()) {
         result = result.concat(walk(full));
@@ -258,17 +291,18 @@ app.get("/api/files", requireAuth, (req, res) => {
         const size = fs.statSync(full).size;
         const type = mime.lookup(full) || "application/octet-stream";
 
-        // kök klasör (thumbnail varsa video kartlarında kullanıyoruz)
         const parts = rel.split(path.sep);
         const rootHash = parts[0];
-        const videoThumbPath = path.join(DOWNLOAD_DIR, rootHash, "thumbnail.jpg");
+        const videoThumbPath = path.join(
+          DOWNLOAD_DIR,
+          rootHash,
+          "thumbnail.jpg"
+        );
         const hasVideoThumb = fs.existsSync(videoThumbPath);
 
-        // URL (segment bazlı encode → / işaretlerini koru)
         const urlPath = encodeURIComponent(rel).replace(/%2F/g, "/");
         const url = `/media/${urlPath}`;
 
-        // Resimler için küçük önizleme: kendi dosyasını thumbnail yap
         const isImage = String(type).startsWith("image/");
         const isVideo = String(type).startsWith("video/");
         const thumb = isImage
@@ -280,8 +314,8 @@ app.get("/api/files", requireAuth, (req, res) => {
         result.push({
           name: rel,
           size,
-          type,     // 🆕 "image/jpeg", "video/mp4", vs.
-          url,      // 🆕 doğrudan görüntüleme/oynatma için
+          type,
+          url,
           thumbnail: thumb
         });
       }
