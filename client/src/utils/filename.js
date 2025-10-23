@@ -1,10 +1,10 @@
-// utils/filename.js
-
 /**
  * Dosya adını temizler ve sadeleştirir.
  * Örnek:
  *  The.Astronaut.2025.1080p.WEBRip.x265-KONTRAST
  *   → "The Astronaut (2025)"
+ *  1761244874124/Gen.V.S02E08.Cavallo.di.Troia.ITA.ENG.1080p.AMZN.WEB-DL.DDP5.1.H.264-MeM.GP.mkv
+ *   → "Gen V S02E08 Cavallo Di Troia"
  */
 export function cleanFileName(fullPath) {
   if (!fullPath) return "";
@@ -15,8 +15,8 @@ export function cleanFileName(fullPath) {
   // 2️⃣ Uzantıyı kaldır
   name = name.replace(/\.[^.]+$/, "");
 
-  // 3️⃣ Noktaları boşluğa çevir
-  name = name.replace(/\./g, " ");
+  // 3️⃣ Noktaları ve alt tireleri boşluğa çevir
+  name = name.replace(/[._]+/g, " ");
 
   // 4️⃣ Gereksiz etiketleri kaldır
   const trashWords = [
@@ -25,7 +25,7 @@ export function cleanFileName(fullPath) {
     "2160p",
     "4k",
     "bluray",
-    "web-dl",
+    "web[- ]?dl",
     "webrip",
     "hdrip",
     "x264",
@@ -34,6 +34,7 @@ export function cleanFileName(fullPath) {
     "aac",
     "h264",
     "h265",
+    "ddp5",
     "dvdrip",
     "brrip",
     "remux",
@@ -41,6 +42,8 @@ export function cleanFileName(fullPath) {
     "sub",
     "subs",
     "turkce",
+    "ita",
+    "eng",
     "dublado",
     "dubbed",
     "extended",
@@ -54,57 +57,42 @@ export function cleanFileName(fullPath) {
     "hdtv",
     "amzn",
     "nf",
-    "netflix"
+    "netflix",
+    "mem",
+    "gp"
   ];
   const trashRegex = new RegExp(`\\b(${trashWords.join("|")})\\b`, "gi");
   name = name.replace(trashRegex, " ");
 
-  // 5️⃣ Köşeli parantez içindekileri kaldır
-  name = name.replace(/\[[^\]]*\]/g, "");
+  // 5️⃣ Parantez veya köşeli parantez içindekileri kaldır
+  name = name.replace(/[\[\(].*?[\]\)]/g, " ");
 
-  // 6️⃣ Parantez içindeki tarihleri kaldır
+  // 6️⃣ Fazla tireleri ve sayıları temizle
   name = name
-    .replace(/\(\d{2}\.\d{2}\.\d{2,4}\)/g, "")
-    .replace(/\(\d{4}(-\d{2})?(-\d{2})?\)/g, "");
-
-  // 7️⃣ Fazla boşlukları temizle
-  name = name.replace(/\s{2,}/g, " ").trim();
-
-  // 8️⃣ Yılı tespit et (ör. 2024, 1999)
-  const yearMatch = name.match(/\b(19|20)\d{2}\b/);
-  let year = "";
-  if (yearMatch) {
-    year = yearMatch[0];
-    name = name.replace(year, "").trim();
-  }
-
-  // 9️⃣ Dizi formatı (S03E01) varsa koru
-  const match = name.match(/(.+?)\s*-\s*(S\d{2}E\d{2})/i);
-  if (match) {
-    const formatted = `${match[1].trim()} - ${match[2].toUpperCase()}`;
-    return year ? `${formatted} (${year})` : formatted;
-  }
-
-  // 🔟 Fazla tireleri ve tire + parantez boşluklarını düzelt
-  name = name
-    .replace(/[-_]+/g, " ") // birden fazla tireyi temizle
-    .replace(/\s-\s*\(/g, " (") // " - (" → " ("
+    .replace(/[-]+/g, " ")
+    .replace(/\b\d{3,4}\b/g, " ") // tek başına 1080, 2025 gibi
+    .replace(/\s{2,}/g, " ")
     .trim();
 
-  // 11️⃣ Baş harfleri büyüt
+  // 7️⃣ Dizi formatını (S02E08) koru
+  const episodeMatch = name.match(/(S\d{1,2}E\d{1,2})/i);
+  if (episodeMatch) {
+    const epTag = episodeMatch[0].toUpperCase();
+    // örnek: Gen V S02E08 Cavallo di Troia
+    name = name.replace(episodeMatch[0], epTag);
+  }
+
+  // 8️⃣ Baş harfleri büyüt (küçük kelimeleri koruyarak)
   name = name
     .split(" ")
-    .map(
-      (w) =>
-        w.length > 1
-          ? w[0].toUpperCase() + w.slice(1).toLowerCase()
-          : w.toUpperCase()
-    )
+    .filter((w) => w.length > 0)
+    .map((w) => {
+      if (["di", "da", "de", "of", "and", "the"].includes(w.toLowerCase()))
+        return w.toLowerCase();
+      return w[0].toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(" ")
     .trim();
 
-  // 12️⃣ Yıl varsa sonuna ekle
-  if (year) name += ` (${year})`;
-
-  return name.trim();
+  return name;
 }

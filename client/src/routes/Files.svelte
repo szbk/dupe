@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { API, apiFetch } from "../utils/api.js";
   import { cleanFileName } from "../utils/filename.js";
 
@@ -16,6 +16,10 @@
   let currentTime = 0;
   let duration = 0;
   let volume = 1;
+  let currentIndex;
+
+  let showImageModal = false;
+  let selectedImage = null;
 
   // ✅ REACTIVE: selectedVideo güvenli kullanımlar
   $: selectedName = selectedVideo?.name ?? "";
@@ -42,23 +46,81 @@
     return (bytes / 1e9).toFixed(2) + " GB";
   }
 
-  function openModal(f) {
-    selectedVideo = f;
-    showModal = true;
+  async function openModal(f) {
+    stopCurrentVideo();
+    videoEl = null;
+    isPlaying = false;
+    currentTime = 0;
+    duration = 0;
+    subtitleURL = null; // ← eklendi
+
+    const index = files.findIndex((file) => file.name === f.name);
+    currentIndex = index;
+
+    if (f.type?.startsWith("video/")) {
+      selectedImage = null;
+      showImageModal = false;
+      selectedVideo = f;
+      await tick(); // DOM güncellensin
+      showModal = true; // video {#key} ile yeniden mount edilecek
+    } else if (f.type?.startsWith("image/")) {
+      selectedVideo = null;
+      showModal = false;
+      selectedImage = f;
+      await tick();
+      showImageModal = true;
+    }
+  }
+
+  function stopCurrentVideo() {
+    if (videoEl) {
+      try {
+        videoEl.pause();
+        videoEl.src = "";
+        videoEl.load();
+      } catch (err) {
+        console.warn("Video stop error:", err.message);
+      }
+    }
+  }
+
+  async function showNext() {
+    if (files.length === 0) return;
+    stopCurrentVideo();
+    currentIndex = (currentIndex + 1) % files.length;
+    await openModal(files[currentIndex]); // ← await
+  }
+
+  async function showPrev() {
+    if (files.length === 0) return;
+    stopCurrentVideo();
+    currentIndex = (currentIndex - 1 + files.length) % files.length;
+    await openModal(files[currentIndex]); // ← await
   }
 
   function closeModal() {
+    stopCurrentVideo(); // 🔴 video tamamen durur
     showModal = false;
     selectedVideo = null;
     subtitleURL = null;
+    isPlaying = false;
   }
 
   // 🎞️ Video kontrolleri
-  function togglePlay() {
+  async function togglePlay() {
     if (!videoEl) return;
-    if (isPlaying) videoEl.pause();
-    else videoEl.play();
-    isPlaying = !isPlaying;
+    if (videoEl.paused) {
+      try {
+        await videoEl.play();
+        isPlaying = true;
+      } catch (err) {
+        console.warn("Play rejected:", err?.message || err);
+        isPlaying = false;
+      }
+    } else {
+      videoEl.pause();
+      isPlaying = false;
+    }
   }
 
   function updateProgress() {
@@ -126,19 +188,23 @@
     reader.readAsArrayBuffer(file);
   }
 
-  function onEsc(e) {
-    if (e.key === "Escape" && showModal) closeModal();
-  }
-
   onMount(() => {
     loadFiles();
-    const slider = document.querySelector(".volume-slider");
-    if (slider) {
-      slider.value = volume;
-      slider.style.setProperty("--fill", slider.value * 100);
+    // ✅ Tek event handler içinde hem Esc hem ok tuşlarını kontrol et
+    function handleKey(e) {
+      if (e.key === "Escape") {
+        if (showModal) closeModal();
+        if (showImageModal) showImageModal = false;
+      } else if (showModal || showImageModal) {
+        if (e.key === "ArrowRight") showNext();
+        if (e.key === "ArrowLeft") showPrev();
+      }
     }
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
+
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+    };
   });
 </script>
 
@@ -153,9 +219,15 @@
   {:else}
     <div class="gallery">
       {#each files as f}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="media-card" on:click={() => openModal(f)}>
           {#if f.thumbnail}
-            <img src={`${API}${f.thumbnail}`} alt={f.name} class="thumb" />
+            <img
+              src={`${API}${f.thumbnail}?token=${localStorage.getItem("token")}`}
+              alt={f.name}
+              class="thumb"
+            />
           {:else}
             <div class="thumb placeholder">
               <i class="fa-regular fa-image"></i>
@@ -165,6 +237,13 @@
             <div class="name">{cleanFileName(f.name)}</div>
             <div class="size">{formatSize(f.size)}</div>
           </div>
+          <div class="media-type-icon">
+            {#if f.type?.startsWith("video/")}
+              <i class="fa-solid fa-film"></i>
+            {:else if f.type?.startsWith("image/")}
+              <i class="fa-solid fa-image"></i>
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -172,39 +251,69 @@
 </section>
 
 {#if showModal && selectedVideo}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-overlay" on:click={closeModal}>
+    <button class="global-close-btn" on:click|stopPropagation={closeModal}
+      >✕</button
+    >
+    <button class="nav-btn left" on:click|stopPropagation={showPrev}>
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <button class="nav-btn right" on:click|stopPropagation={showNext}>
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
-        <div class="video-title">{selectedName}</div>
-        <button class="close-btn" on:click={closeModal}>✕</button>
+        <div class="video-title">{cleanFileName(selectedName)}</div>
       </div>
 
       <div class="custom-player">
         <!-- ✅ selectedVideo yokken boş src -->
-        <video
-          bind:this={videoEl}
-          src={getVideoURL()}
-          class="video-element"
-          on:timeupdate={updateProgress}
-          on:loadedmetadata={() => {
-            updateDuration();
-            const slider = document.querySelector(".volume-slider");
-            if (slider) {
-              slider.value = volume;
-              slider.style.setProperty("--fill", slider.value * 100);
-            }
-          }}
-        >
-          {#if subtitleURL}
-            <track
-              kind="subtitles"
-              src={subtitleURL}
-              srclang={subtitleLang}
-              label={subtitleLabel}
-              default
-            />
-          {/if}
-        </video>
+        <!-- svelte-ignore a11y-media-has-caption -->
+        {#key encName}
+          <!-- svelte-ignore a11y-media-has-caption -->
+          <video
+            bind:this={videoEl}
+            src={getVideoURL()}
+            class="video-element"
+            playsinline
+            on:timeupdate={updateProgress}
+            on:loadedmetadata={async () => {
+              // her yeni videoda state’i sıfırla
+              isPlaying = false;
+              currentTime = 0;
+              updateDuration();
+
+              const slider = document.querySelector(".volume-slider");
+              if (slider) {
+                slider.value = volume;
+                slider.style.setProperty("--fill", slider.value * 100);
+              }
+
+              // 🎬 Otomatik oynatma (tarayıcı izin verirse)
+              try {
+                await videoEl.play();
+                isPlaying = true;
+              } catch (err) {
+                console.warn("Autoplay engellendi:", err?.message || err);
+                isPlaying = false;
+              }
+            }}
+            on:ended={() => (isPlaying = false)}
+          >
+            {#if subtitleURL}
+              <track
+                kind="subtitles"
+                src={subtitleURL}
+                srclang={subtitleLang}
+                label={subtitleLabel}
+                default
+              />
+            {/if}
+          </video>
+        {/key}
 
         <div class="controls">
           <div class="top-controls">
@@ -272,6 +381,31 @@
     </div>
   </div>
 {/if}
+{#if showImageModal && selectedImage}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="image-modal-overlay" on:click={() => (showImageModal = false)}>
+    <button
+      class="image-close-btn"
+      on:click|stopPropagation={() => (showImageModal = false)}>✕</button
+    >
+    <button class="nav-btn left" on:click|stopPropagation={showPrev}>
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <button class="nav-btn right" on:click|stopPropagation={showNext}>
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <div class="image-modal-content" on:click|stopPropagation>
+      <img
+        src={`${API}${selectedImage.url}?token=${localStorage.getItem("token")}`}
+        alt={selectedImage.name}
+        class="image-modal-img"
+      />
+    </div>
+  </div>
+{/if}
 
 <style>
   /* === GALERİ === */
@@ -330,246 +464,67 @@
     color: #666;
   }
 
-  /* === MODAL & PLAYER (Transfers.svelte ile birebir) === */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    backdrop-filter: blur(10px);
-    background: rgba(0, 0, 0, 0.8);
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 2100;
+    width: 50px;
+    height: 60px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999;
+    transition:
+      background 0.2s ease,
+      transform 0.2s ease;
   }
 
-  .modal-content {
-    width: 70%;
-    height: 70%;
-    background: #1a1a1a;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+  .nav-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-50%) scale(1.05);
   }
 
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #2a2a2a;
-    padding: 10px 16px;
-    color: #fff;
-    font-size: 16px;
-    font-weight: 500;
+  .nav-btn.left {
+    left: 15px;
   }
 
-  .video-title {
-    flex: 1;
-    text-align: center;
-    font-weight: 600;
+  .nav-btn.right {
+    right: 15px;
   }
 
-  .close-btn {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 24px;
-    cursor: pointer;
+  .media-card {
+    position: relative; /* ikonun pozisyonlanması için gerekli */
   }
 
-  .custom-player {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    background: #000;
+  .media-type-icon {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    color: rgba(0, 0, 0, 0.45); /* sönük gri ton */
+    font-size: 14px;
+    pointer-events: none; /* tıklamayı engelle */
   }
 
-  .video-element {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #000;
-    border: none;
-    outline: none;
+  .media-type-icon i {
+    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.3));
   }
 
-  .video-element:focus {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* === Kontroller === */
-  .controls {
-    background: #1c1c1c;
-    padding: 10px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    border-top: 1px solid #333;
-  }
-
-  .top-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .control-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-
-  .control-btn:hover {
-    opacity: 0.7;
-  }
-
-  .right-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* === Ses Kaydırıcısı === */
-  .volume-slider {
-    -webkit-appearance: none;
-    width: 100px;
-    height: 4px;
-    border-radius: 2px;
-    background: linear-gradient(
-      to right,
-      #ff3b30 calc(var(--fill, 100%) * 1%),
-      rgba(255, 255, 255, 0.3) calc(var(--fill, 100%) * 1%)
-    );
-    outline: none;
-    cursor: pointer;
-    transition: background 0.2s ease;
-  }
-
-  .volume-slider::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
-    background: transparent;
-  }
-
-  .volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    cursor: pointer;
-    margin-top: -4px;
-    transition: transform 0.2s ease;
-  }
-
-  .volume-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.3);
-  }
-
-  .volume-slider::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-  }
-
-  .volume-slider::-moz-range-thumb:hover {
-    transform: scale(1.3);
-  }
-
-  .volume-slider::-moz-range-progress {
-    height: 4px;
-    background: #ff3b30;
-    border-radius: 2px;
-  }
-
-  /* === Alt Kontroller === */
-  .bottom-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .progress-slider {
-    flex: 1;
-    cursor: pointer;
-    accent-color: #27ae60;
-  }
-
-  .time {
-    color: #ccc;
-    font-size: 13px;
-    min-width: 90px;
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  /* === Responsive === */
-  @media (max-width: 1024px) {
-    .modal-content {
-      width: 90%;
-      height: 75%;
-    }
-  }
-
+  /* === RESPONSIVE === */
   @media (max-width: 768px) {
     .gallery {
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
-
-    .modal-content {
-      width: 95%;
-      height: 70%;
-      border-radius: 8px;
-    }
-
-    .controls {
-      padding: 6px 10px;
-      gap: 6px;
-    }
-
-    .volume-slider {
-      width: 70px;
-    }
-
-    .time {
-      font-size: 11px;
-      min-width: 70px;
-    }
-
-    .video-title {
-      font-size: 14px;
-    }
-
-    .close-btn {
-      font-size: 20px;
-    }
   }
 
   @media (max-width: 480px) {
-    .modal-content {
-      width: 98%;
-      height: 75%;
-    }
-
-    .volume-slider {
-      width: 50px;
-    }
-
-    .bottom-controls {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 6px;
+    .gallery {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     }
   }
 </style>

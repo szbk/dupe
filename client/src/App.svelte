@@ -11,30 +11,38 @@
   const token = localStorage.getItem("token");
 
   let menuOpen = false;
+
+  // Menü aç/kapat (hamburger butonuyla)
   const toggleMenu = () => {
     menuOpen = !menuOpen;
   };
+
+  // 🔹 Sidebar'ı kapatma fonksiyonu
+  function closeSidebar() {
+    menuOpen = false;
+  }
 </script>
 
 {#if token}
   <Router>
     <div class="app">
-      <Sidebar {menuOpen} />
+      <!-- Sidebar -->
+      <Sidebar {menuOpen} on:closeMenu={closeSidebar} />
+
+      <!-- İçerik -->
       <div class="content">
         <Topbar on:toggleMenu={toggleMenu} />
+
         <Route path="/" component={Files} />
         <Route path="/files" component={Files} />
         <Route path="/transfers" component={Transfers} />
         <Route path="/sharing" component={Sharing} />
         <Route path="/trash" component={Trash} />
       </div>
+
+      <!-- Sidebar dışına tıklayınca kapanma -->
       {#if menuOpen}
-        <div
-          class="backdrop show"
-          on:click={() => {
-            menuOpen = false;
-          }}
-        ></div>
+        <div class="backdrop show" on:click={closeSidebar}></div>
       {/if}
     </div>
   </Router>

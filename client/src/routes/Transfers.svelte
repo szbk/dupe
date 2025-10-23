@@ -428,7 +428,13 @@
 {/if}
 
 <style>
-  /* --- Torrent liste & satırları (eski App.svelte ile bire bir) --- */
+  /* --- Torrent Listeleme --- */
+  .torrent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .torrent {
     display: grid;
     grid-template-columns: 100px 1fr;
@@ -441,11 +447,7 @@
     box-sizing: border-box;
     cursor: pointer;
   }
-  .torrent-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+
   .thumb {
     width: 100px;
     height: 60px;
@@ -454,6 +456,7 @@
     background: #ddd;
     flex-shrink: 0;
   }
+
   .placeholder {
     width: 100px;
     height: 60px;
@@ -464,21 +467,25 @@
     border-radius: 6px;
     font-size: 24px;
   }
+
   .torrent-info {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
+
   .torrent-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     font-weight: 700;
   }
+
   .torrent-name {
     word-break: break-word;
   }
+
   .remove-btn {
     background: transparent;
     border: none;
@@ -486,9 +493,11 @@
     cursor: pointer;
     transition: transform 0.15s;
   }
+
   .remove-btn:hover {
     transform: scale(1.2);
   }
+
   .torrent-hash {
     font-size: 12px;
     color: #777;
@@ -500,12 +509,14 @@
     flex-direction: column;
     gap: 2px;
   }
+
   .file-row {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 13px;
   }
+
   .file-row button {
     background: #eee;
     border: none;
@@ -514,17 +525,21 @@
     cursor: pointer;
     font-size: 12px;
   }
+
   .file-row button:hover {
     background: #ddd;
   }
+
   .filename {
     flex: 1;
   }
+
   .filesize {
     color: #666;
     font-size: 12px;
   }
 
+  /* --- İlerleme Çubuğu --- */
   .progress-bar {
     width: 100%;
     height: 6px;
@@ -532,11 +547,13 @@
     border-radius: 3px;
     overflow: hidden;
   }
+
   .progress {
     height: 100%;
     background: linear-gradient(90deg, #27ae60, #2ecc71);
     transition: width 0.3s;
   }
+
   .progress-text {
     font-size: 12px;
     color: #444;
@@ -544,209 +561,7 @@
     padding: 3px 0 8px 0;
   }
 
-  /* --- Modal & Player (eski ile bire bir) --- */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    backdrop-filter: blur(10px);
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999;
-  }
-  .modal-content {
-    width: 70%;
-    height: 70%;
-    background: #1a1a1a;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #2a2a2a;
-    padding: 10px 16px;
-    color: #fff;
-    font-size: 16px;
-    font-weight: 500;
-  }
-  .video-title {
-    flex: 1;
-    text-align: center;
-    font-weight: 600;
-  }
-  .close-btn {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 24px;
-    cursor: pointer;
-  }
-
-  .custom-player {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    background: #000;
-  }
-  .video-element {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #000;
-    border: none;
-    outline: none;
-  }
-  .video-element:focus {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  .controls {
-    background: #1c1c1c;
-    padding: 10px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    border-top: 1px solid #333;
-  }
-  .top-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .control-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-  .control-btn:hover {
-    opacity: 0.7;
-  }
-  .right-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* Volume slider — kırmızı dolum, beyaz knob */
-  .volume-slider {
-    -webkit-appearance: none;
-    width: 100px;
-    height: 4px;
-    border-radius: 2px;
-    background: linear-gradient(
-      to right,
-      #ff3b30 calc(var(--fill, 100%) * 1%),
-      rgba(255, 255, 255, 0.3) calc(var(--fill, 100%) * 1%)
-    );
-    outline: none;
-    cursor: pointer;
-    transition: background 0.2s ease;
-  }
-  .volume-slider::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
-    background: transparent;
-  }
-  .volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    cursor: pointer;
-    margin-top: -4px;
-    transition: transform 0.2s ease;
-  }
-  .volume-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.3);
-  }
-  .volume-slider::-moz-range-track {
-    height: 4px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
-  }
-  .volume-slider::-moz-range-progress {
-    height: 4px;
-    background: #ff3b30;
-    border-radius: 2px;
-  }
-  .volume-slider::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-  }
-  .volume-slider::-moz-range-thumb:hover {
-    transform: scale(1.3);
-  }
-
-  .subtitle-icon {
-    position: relative;
-  }
-  .bottom-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .progress-slider {
-    flex: 1;
-    cursor: pointer;
-    accent-color: #27ae60;
-  }
-  .time {
-    color: #ccc;
-    font-size: 13px;
-    min-width: 90px;
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  /* NEW TRANSFER / Magnet düğmeleri */
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #fdce45;
-    border: none;
-    color: #000;
-    font-weight: 600;
-    text-transform: uppercase;
-    border-radius: 6px;
-    padding: 8px 14px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: background 0.2s;
-    height: 36px;
-    line-height: 1;
-  }
-  .btn-primary:hover {
-    background: #fdce45;
-  }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .modal-content {
-      width: 95%;
-      height: 75%;
-    }
-  }
-
-  /* 🔹 Responsive Düzenlemeler (hiçbir mevcut stili bozmadan eklenmiştir) */
+  /* --- Responsive Düzenlemeler --- */
   @media (max-width: 1024px) {
     .torrent {
       grid-template-columns: 80px 1fr;
@@ -767,25 +582,9 @@
     .torrent-files .file-row {
       font-size: 12px;
     }
-
-    .btn-primary {
-      font-size: 12px;
-      padding: 6px 10px;
-      height: 32px;
-    }
-
-    .modal-content {
-      width: 90%;
-      height: 75%;
-    }
   }
 
   @media (max-width: 768px) {
-    .files {
-      margin: 0 8px 12px 8px;
-      padding-top: 10px;
-    }
-
     .torrent {
       grid-template-columns: 1fr;
       gap: 8px;
@@ -815,72 +614,18 @@
       font-size: 11px;
     }
 
-    .btn-primary {
-      flex: 1;
-      justify-content: center;
-    }
-
     .torrent-list {
       gap: 10px;
-    }
-
-    /* 🎬 Modal video oynatıcı mobil optimizasyonu */
-    .modal-content {
-      width: 95%;
-      height: 70%;
-      border-radius: 8px;
-    }
-
-    .controls {
-      padding: 6px 10px;
-      gap: 6px;
-    }
-
-    .volume-slider {
-      width: 70px;
-    }
-
-    .time {
-      font-size: 11px;
-      min-width: 70px;
-    }
-
-    .video-title {
-      font-size: 14px;
-    }
-
-    .close-btn {
-      font-size: 20px;
     }
   }
 
   @media (max-width: 480px) {
-    .btn-primary {
-      font-size: 11px;
-      padding: 6px 8px;
-    }
-
     .torrent-header {
       font-size: 13px;
     }
 
     .torrent-hash {
       font-size: 10px;
-    }
-
-    .modal-content {
-      width: 98%;
-      height: 75%;
-    }
-
-    .volume-slider {
-      width: 50px;
-    }
-
-    .bottom-controls {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 6px;
     }
   }
 </style>

@@ -29,7 +29,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/downloads", express.static(DOWNLOAD_DIR));
 
-
 // --- En uygun video dosyasını seç ---
 function pickBestVideoFile(torrent) {
   const videoExts = [".mp4", ".webm", ".mkv", ".mov", ".m4v"];
@@ -70,8 +69,8 @@ function snapshot() {
 }
 
 // --- Basit kimlik doğrulama sistemi ---
-const USERNAME = process.env.USERNAME
-const PASSWORD = process.env.PASSWORD
+const USERNAME = process.env.USERNAME;
+const PASSWORD = process.env.PASSWORD;
 let activeTokens = new Set();
 
 app.post("/api/login", (req, res) => {
@@ -85,13 +84,11 @@ app.post("/api/login", (req, res) => {
 });
 
 function requireAuth(req, res, next) {
-  const token =
-    req.headers.authorization?.split(" ")[1] || req.query.token;
+  const token = req.headers.authorization?.split(" ")[1] || req.query.token;
   if (!token || !activeTokens.has(token))
     return res.status(401).json({ error: "Unauthorized" });
   next();
 }
-
 
 // --- Torrent veya magnet ekleme ---
 app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
@@ -131,8 +128,8 @@ app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
         infoHash: torrent.infoHash,
         name: torrent.name,
         selectedIndex,
-        tracker: torrent.announce?.[0] || null, // 🆕
-        added, // 🆕
+        tracker: torrent.announce?.[0] || null,
+        added,
         files: torrent.files.map((f, i) => ({
           index: i,
           name: f.name,
@@ -206,15 +203,19 @@ app.delete("/api/torrents/:hash", requireAuth, (req, res) => {
   });
 });
 
+// --- GENEL MEDYA SUNUMU (🆕 resimler + videolar) ---
 app.get("/media/:path(*)", requireAuth, (req, res) => {
-  const fullPath = path.join(DOWNLOAD_DIR, req.params.path);
+  const relPath = req.params.path;
+  const fullPath = path.join(DOWNLOAD_DIR, relPath);
   if (!fs.existsSync(fullPath)) return res.status(404).send("File not found");
 
   const stat = fs.statSync(fullPath);
   const fileSize = stat.size;
+  const type = mime.lookup(fullPath) || "application/octet-stream";
+  const isVideo = String(type).startsWith("video/");
   const range = req.headers.range;
 
-  if (range) {
+  if (isVideo && range) {
     const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
     const start = parseInt(startStr, 10);
     const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
@@ -224,21 +225,22 @@ app.get("/media/:path(*)", requireAuth, (req, res) => {
       "Content-Range": `bytes ${start}-${end}/${fileSize}`,
       "Accept-Ranges": "bytes",
       "Content-Length": chunkSize,
-      "Content-Type": "video/mp4"
+      "Content-Type": type
     };
     res.writeHead(206, head);
     file.pipe(res);
   } else {
     const head = {
       "Content-Length": fileSize,
-      "Content-Type": "video/mp4"
+      "Content-Type": type,
+      "Accept-Ranges": isVideo ? "bytes" : "none"
     };
     res.writeHead(200, head);
     fs.createReadStream(fullPath).pipe(res);
   }
 });
 
-// --- 📁 Dosya gezgini: /downloads altındaki dosyaları listele ---
+// --- 📁 Dosya gezgini (🆕 type ve url alanları eklendi; resim thumb'ı) ---
 app.get("/api/files", requireAuth, (req, res) => {
   const walk = (dir) => {
     let result = [];
@@ -251,21 +253,35 @@ app.get("/api/files", requireAuth, (req, res) => {
       if (entry.isDirectory()) {
         result = result.concat(walk(full));
       } else {
-        // thumbnail.jpg dosyasını listeleme
         if (entry.name.toLowerCase() === "thumbnail.jpg") continue;
-        const size = fs.statSync(full).size;
-        const parts = rel.split(path.sep);
-        const rootHash = parts[0]; // ilk klasör adı
-        const thumbPath = path.join(DOWNLOAD_DIR, rootHash, "thumbnail.jpg");
 
-        // ✅ Thumbnail dosyası gerçekten varsa ekle
-        const thumb = fs.existsSync(thumbPath)
+        const size = fs.statSync(full).size;
+        const type = mime.lookup(full) || "application/octet-stream";
+
+        // kök klasör (thumbnail varsa video kartlarında kullanıyoruz)
+        const parts = rel.split(path.sep);
+        const rootHash = parts[0];
+        const videoThumbPath = path.join(DOWNLOAD_DIR, rootHash, "thumbnail.jpg");
+        const hasVideoThumb = fs.existsSync(videoThumbPath);
+
+        // URL (segment bazlı encode → / işaretlerini koru)
+        const urlPath = encodeURIComponent(rel).replace(/%2F/g, "/");
+        const url = `/media/${urlPath}`;
+
+        // Resimler için küçük önizleme: kendi dosyasını thumbnail yap
+        const isImage = String(type).startsWith("image/");
+        const isVideo = String(type).startsWith("video/");
+        const thumb = isImage
+          ? url
+          : hasVideoThumb
           ? `/downloads/${rootHash}/thumbnail.jpg`
           : null;
 
         result.push({
           name: rel,
           size,
+          type,     // 🆕 "image/jpeg", "video/mp4", vs.
+          url,      // 🆕 doğrudan görüntüleme/oynatma için
           thumbnail: thumb
         });
       }
@@ -283,7 +299,7 @@ app.get("/api/files", requireAuth, (req, res) => {
   }
 });
 
-// --- Stream endpoint ---
+// --- Stream endpoint (torrent içinden) ---
 app.get("/stream/:hash", requireAuth, (req, res) => {
   const entry = torrents.get(req.params.hash);
   if (!entry) return res.status(404).end();
@@ -331,8 +347,6 @@ const server = app.listen(PORT, () =>
 const publicDir = path.join(__dirname, "public");
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
-
-  // Frontend route'larını index.html'e yönlendir
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
     res.sendFile(path.join(publicDir, "index.html"));
