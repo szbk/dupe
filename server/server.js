@@ -68,6 +68,25 @@ function snapshot() {
   );
 }
 
+function createImageThumbnail(filePath, outputDir) {
+  const fileName = path.basename(filePath);
+  const thumbDir = path.join(outputDir, "thumbnail");
+  const thumbPath = path.join(thumbDir, fileName);
+
+  if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
+
+  // 320px genişlikte orantılı thumbnail oluştur
+  const cmd = `ffmpeg -y -i "${filePath}" -vf "scale=320:-1" -q:v 5 "${thumbPath}"`;
+
+  exec(cmd, (err) => {
+    if (err) {
+      console.warn(`❌ Thumbnail oluşturulamadı: ${fileName}`, err.message);
+    } else {
+      console.log(`🖼️ Thumbnail oluşturuldu: ${thumbPath}`);
+    }
+  });
+}
+
 // --- Basit kimlik doğrulama sistemi ---
 const USERNAME = process.env.USERNAME;
 const PASSWORD = process.env.PASSWORD;
@@ -143,14 +162,43 @@ app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
       const entry = torrents.get(torrent.infoHash);
       if (!entry) return;
 
+      console.log(`✅ Torrent tamamlandı: ${torrent.name}`);
+
+      // --- 1️⃣ Video için thumbnail oluştur ---
       const videoFile = torrent.files[entry.selectedIndex];
       const videoPath = path.join(entry.savePath, videoFile.path);
       const thumbnailPath = path.join(entry.savePath, "thumbnail.jpg");
 
       const cmd = `ffmpeg -ss 00:00:30 -i "${videoPath}" -frames:v 1 -q:v 2 "${thumbnailPath}"`;
       exec(cmd, (err) => {
-        if (err) console.warn(`⚠️ Thumbnail oluşturulamadı: ${err.message}`);
-        else console.log(`📸 Thumbnail oluşturuldu: ${thumbnailPath}`);
+        if (err)
+          console.warn(`⚠️ Video thumbnail oluşturulamadı: ${err.message}`);
+        else console.log(`🎞️ Video thumbnail oluşturuldu: ${thumbnailPath}`);
+      });
+
+      // --- 2️⃣ Resimler için thumbnail oluştur ---
+      // Tüm resimleri tara, küçük hallerini kök klasör altındaki /thumbnail klasörüne oluştur
+      const rootThumbDir = path.join(entry.savePath, "thumbnail");
+      if (!fs.existsSync(rootThumbDir))
+        fs.mkdirSync(rootThumbDir, { recursive: true });
+
+      torrent.files.forEach((file) => {
+        const filePath = path.join(entry.savePath, file.path);
+        const mimeType = mime.lookup(filePath) || "";
+
+        if (mimeType.startsWith("image/")) {
+          const thumbPath = path.join(rootThumbDir, path.basename(filePath));
+
+          // 320px genişlikte, orantılı küçük versiyon oluştur
+          const imgCmd = `ffmpeg -y -i "${filePath}" -vf "scale=320:-1" -q:v 5 "${thumbPath}"`;
+          exec(imgCmd, (err) => {
+            if (err)
+              console.warn(
+                `⚠️ Resim thumbnail oluşturulamadı (${file.name}): ${err.message}`
+              );
+            else console.log(`🖼️ Resim thumbnail oluşturuldu: ${thumbPath}`);
+          });
+        }
       });
     });
   } catch (err) {
@@ -280,6 +328,8 @@ app.get("/api/files", requireAuth, (req, res) => {
       const full = path.join(dir, entry.name);
       const rel = path.relative(DOWNLOAD_DIR, full);
 
+      if (rel.toLowerCase().includes("/thumbnail")) continue;
+
       // 🔥 Ignore kontrolü (hem dosya hem klasör için)
       if (isIgnored(entry.name) || isIgnored(rel)) continue;
 
@@ -305,11 +355,27 @@ app.get("/api/files", requireAuth, (req, res) => {
 
         const isImage = String(type).startsWith("image/");
         const isVideo = String(type).startsWith("video/");
-        const thumb = isImage
-          ? url
-          : hasVideoThumb
-          ? `/downloads/${rootHash}/thumbnail.jpg`
-          : null;
+
+        let thumb = null;
+
+        // 🎬 Video thumbnail
+        if (hasVideoThumb) {
+          thumb = `/downloads/${rootHash}/thumbnail.jpg`;
+        }
+
+        // 🖼️ Resim thumbnail (thumbnail klasöründe varsa)
+        const imageThumbPath = path.join(
+          DOWNLOAD_DIR,
+          rootHash,
+          "thumbnail",
+          path.basename(rel)
+        );
+
+        if (isImage && fs.existsSync(imageThumbPath)) {
+          thumb = `/downloads/${rootHash}/thumbnail/${encodeURIComponent(
+            path.basename(rel)
+          )}`;
+        }
 
         result.push({
           name: rel,
