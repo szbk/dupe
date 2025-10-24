@@ -221,9 +221,73 @@
     return `${m}:${s}`;
   }
 
+  let dragActive = false;
+  let pageDragOverlay = false;
+  let dragCounter = 0;
+
+  // sadece drop-zone alanına gelen olayları işleme
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (torrents.length === 0) dragActive = true;
+    else pageDragOverlay = true;
+  }
+
+  function handleDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    if (torrents.length === 0) dragActive = true;
+    else pageDragOverlay = true;
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragActive = false;
+      pageDragOverlay = false;
+    }
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
+    dragActive = false;
+    pageDragOverlay = false;
+
+    const files = Array.from(e.dataTransfer?.files || []);
+    const torrentsToUpload = files.filter((f) => f.name.endsWith(".torrent"));
+    if (!torrentsToUpload.length) return;
+
+    for (const file of torrentsToUpload) {
+      const fd = new FormData();
+      fd.append("torrent", file);
+      await apiFetch("/api/transfer", { method: "POST", body: fd });
+    }
+
+    await list();
+  }
+
+  // 🧩 Global dinleyiciler — sadece overlay için, drop'u engellemeden
+  function addGlobalDragListeners() {
+    window.addEventListener("dragenter", handleDragEnter);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("dragover", (e) => e.preventDefault());
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dragActive = false;
+      pageDragOverlay = false;
+    });
+  }
+
   onMount(() => {
     list(); // 🔒 token'lı liste çekimi
     wsConnect(); // 🔒 token'lı WebSocket
+    addGlobalDragListeners();
     const slider = document.querySelector(".volume-slider");
     if (slider) {
       slider.value = volume;
@@ -255,12 +319,27 @@
   </div>
 
   {#if torrents.length === 0}
-    <div class="empty">
-      <div style="font-size:42px">➕</div>
-      <div style="font-weight:700">No files whatsoever!</div>
+    <div
+      class="empty drop-zone {dragActive ? 'active' : ''}"
+      on:dragenter={handleDragEnter}
+      on:dragover={handleDragOver}
+      on:dragleave={handleDragLeave}
+      on:drop={handleDrop}
+    >
+      <div class="drop-inner">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <div class="title">Drop your .torrent file here</div>
+        <div class="subtitle">or use the buttons above</div>
+      </div>
     </div>
   {:else}
-    <div class="torrent-list">
+    <div
+      class="torrent-list"
+      on:dragenter={handleDragEnter}
+      on:dragover={handleDragOver}
+      on:dragleave={handleDragLeave}
+      on:drop={handleDrop}
+    >
       {#each torrents as t (t.infoHash)}
         <div class="torrent" on:click={() => openModal(t)}>
           {#if t.thumbnail}
@@ -328,16 +407,28 @@
           </div>
         </div>
       {/each}
+      {#if pageDragOverlay}
+        <div class="page-drop-overlay">
+          <div class="page-drop-text">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Drop to add torrent</span>
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 </section>
 
 {#if showModal && selectedVideo}
   <div class="modal-overlay" on:click={closeModal}>
+    <!-- 🟢 Global Close Button (Files.svelte ile aynı) -->
+    <button class="global-close-btn" on:click|stopPropagation={closeModal}
+      >✕</button
+    >
+
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <div class="video-title">{selectedVideo.name}</div>
-        <button class="close-btn" on:click={closeModal}>✕</button>
       </div>
 
       <div class="custom-player">
@@ -565,6 +656,81 @@
     color: #444;
     text-align: right;
     padding: 3px 0 8px 0;
+  }
+
+  /* 🪄 Drop Zone */
+  /* === 🧊 Drop Zone (boş sayfa görünümü) === */
+  .drop-zone {
+    border: 2px dashed rgba(160, 160, 160, 0.4);
+    border-radius: 12px;
+    padding: 60px 20px;
+    text-align: center;
+    background: rgba(245, 245, 245, 0.5);
+    transition: background 0.3s ease;
+  }
+
+  .drop-zone.active {
+    backdrop-filter: blur(10px) brightness(0.9);
+    background: rgba(150, 150, 150, 0.35);
+    border-color: rgba(100, 100, 100, 0.6);
+    transition: all 0.3s ease;
+  }
+
+  .drop-inner {
+    color: #777;
+  }
+  .drop-inner i {
+    font-size: 42px;
+    color: #aaa;
+  }
+  .drop-inner .title {
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .drop-inner .subtitle {
+    font-size: 13px;
+    color: #999;
+  }
+
+  /* === Liste doluyken sayfa üstü blur === */
+  .page-drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(8px);
+    background: rgba(200, 200, 200, 0.4);
+    border-radius: 12px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .page-drop-text {
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-weight: 600;
+    font-size: 18px;
+  }
+
+  .page-drop-text i {
+    font-size: 42px;
+    margin-bottom: 8px;
+    color: #888;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   /* --- Responsive Düzenlemeler --- */
