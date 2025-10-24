@@ -225,6 +225,24 @@
 
   onMount(() => {
     loadFiles();
+
+    // 🔄 WebSocket ile anlık dosya güncellemelerini dinle
+    const token = localStorage.getItem("token");
+    const wsUrl = `${API.replace("http", "ws")}?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = async (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "fileUpdate") {
+          console.log("📸 Yeni thumbnail bildirimi alındı:", msg.path);
+          await loadFiles(); // 🔄 anında dosya listesini yenile
+        }
+      } catch (err) {
+        console.warn("WebSocket mesajı çözümlenemedi:", err);
+      }
+    };
+
     // ✅ Tek event handler içinde hem Esc hem ok tuşlarını kontrol et
     function handleKey(e) {
       if (e.key === "Escape") {
@@ -262,6 +280,7 @@
               src={`${API}${f.thumbnail}?token=${localStorage.getItem("token")}`}
               alt={f.name}
               class="thumb"
+              on:load={(e) => e.target.classList.add("loaded")}
             />
           {:else}
             <div class="thumb placeholder">
