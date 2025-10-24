@@ -60,12 +60,12 @@
     ws?.send(JSON.stringify({ type: "select", infoHash: hash, index }));
   }
 
-async function removeTorrent(hash) {
-  if (!confirm("Bu transferi silmek istediğine emin misin?")) return;
-  await apiFetch(`/api/torrents/${hash}`, { method: "DELETE" });
-  torrents = torrents.filter(t => t.infoHash !== hash);
-  await list();
-}
+  async function removeTorrent(hash) {
+    if (!confirm("Bu transferi silmek istediğine emin misin?")) return;
+    await apiFetch(`/api/torrents/${hash}`, { method: "DELETE" });
+    torrents = torrents.filter((t) => t.infoHash !== hash);
+    await list();
+  }
 
   function streamURL(hash, index = 0) {
     const token = localStorage.getItem("token");
@@ -264,7 +264,12 @@ async function removeTorrent(hash) {
       {#each torrents as t (t.infoHash)}
         <div class="torrent" on:click={() => openModal(t)}>
           {#if t.thumbnail}
-            <img src={`${API}${t.thumbnail}`} alt="thumb" class="thumb" />
+            <img
+              src={`${API}${t.thumbnail}?token=${localStorage.getItem("token")}`}
+              alt="thumb"
+              class="thumb"
+              on:load={(e) => e.target.classList.add("loaded")}
+            />
           {:else}
             <div class="thumb placeholder">
               <i class="fa-regular fa-image"></i>

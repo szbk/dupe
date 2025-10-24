@@ -173,7 +173,14 @@ app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
       exec(cmd, (err) => {
         if (err)
           console.warn(`⚠️ Video thumbnail oluşturulamadı: ${err.message}`);
-        else console.log(`🎞️ Video thumbnail oluşturuldu: ${thumbnailPath}`);
+        else {
+          console.log(`🎞️ Video thumbnail oluşturuldu: ${thumbnailPath}`);
+          const data = JSON.stringify({
+            type: "fileUpdate",
+            path: path.relative(DOWNLOAD_DIR, entry.savePath)
+          });
+          wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
+        }
       });
 
       // --- 2️⃣ Resimler için thumbnail oluştur ---

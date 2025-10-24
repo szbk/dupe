@@ -450,6 +450,50 @@ body,
   font-weight: 600;
 }
 
+/* 🌫️ Thumbnail fade-in + blur efekti */
+/* 🌫️ Fade-in thumbnail efekti — sadece img'ler için geçerli */
+img.thumb {
+  opacity: 0;
+  filter: blur(10px) brightness(0.9);
+  transform: scale(1.03);
+  transition: opacity 0.6s ease, filter 1s ease, transform 0.6s ease;
+}
+
+img.thumb.loaded {
+  opacity: 1;
+  filter: blur(0) brightness(1);
+  transform: scale(1);
+}
+
+/* 🪄 Placeholder her zaman görünür */
+.thumb.placeholder {
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  background: linear-gradient(100deg, #f0f0f0 20%, #e2e2e2 50%, #f0f0f0 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.thumb.placeholder i {
+  font-size: 28px;
+  color: #777;
+  opacity: 0.9;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 /* =======================================================
    📱 RESPONSIVE
    ======================================================= */
