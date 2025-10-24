@@ -223,10 +223,9 @@
     }
   }
 
-  onMount(() => {
-    loadFiles();
+  onMount(async () => {
+    await loadFiles(); // önce dosyaları getir
 
-    // 🔄 WebSocket ile anlık dosya güncellemelerini dinle
     const token = localStorage.getItem("token");
     const wsUrl = `${API.replace("http", "ws")}?token=${token}`;
     const ws = new WebSocket(wsUrl);
@@ -234,16 +233,37 @@
     ws.onmessage = async (event) => {
       try {
         const msg = JSON.parse(event.data);
+
         if (msg.type === "fileUpdate") {
-          console.log("📸 Yeni thumbnail bildirimi alındı:", msg.path);
-          await loadFiles(); // 🔄 anında dosya listesini yenile
+          console.log("📸 Yeni thumbnail bildirimi:", msg.path);
+          await loadFiles();
+        }
+
+        if (msg.type === "progress" && msg.torrents) {
+          for (const t of msg.torrents) {
+            const savePath = t.savePath || "";
+            const folderId = savePath.split("/").pop();
+
+            files = files.map((f) => {
+              const fileFolder = f.name.split("/")[0];
+              if (fileFolder === folderId) {
+                return t.progress < 1
+                  ? {
+                      ...f,
+                      progressText: `${Math.floor(t.progress * 100)}%`
+                    }
+                  : { ...f, progressText: null };
+              }
+              return f;
+            });
+          }
+          files = [...files];
         }
       } catch (err) {
         console.warn("WebSocket mesajı çözümlenemedi:", err);
       }
     };
 
-    // ✅ Tek event handler içinde hem Esc hem ok tuşlarını kontrol et
     function handleKey(e) {
       if (e.key === "Escape") {
         if (showModal) closeModal();
@@ -255,9 +275,7 @@
     }
 
     window.addEventListener("keydown", handleKey);
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-    };
+    return () => window.removeEventListener("keydown", handleKey);
   });
 </script>
 
@@ -289,7 +307,13 @@
           {/if}
           <div class="info">
             <div class="name">{cleanFileName(f.name)}</div>
-            <div class="size">{formatSize(f.size)}</div>
+            <div class="size">
+              {#if f.progressText}
+                <span class="progress-text">{f.progressText}</span>
+              {:else}
+                {formatSize(f.size)}
+              {/if}
+            </div>
           </div>
           <div class="media-type-icon">
             {#if f.type?.startsWith("video/")}
@@ -598,6 +622,25 @@
   /* Hover olunca görünür */
   .media-card:hover .delete-overlay {
     opacity: 1;
+  }
+
+  .progress-text {
+    color: #666; /* gri */
+    font-weight: 600;
+    font-size: 12px;
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 0.7;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.7;
+    }
   }
 
   /* 🗑️ ikonu hover efekti */

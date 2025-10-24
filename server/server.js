@@ -54,8 +54,9 @@ function snapshot() {
         downloadSpeed: torrent.downloadSpeed,
         uploadSpeed: torrent.uploadSpeed,
         numPeers: torrent.numPeers,
-        tracker: torrent.announce?.[0] || null, // 🆕 ilk tracker
-        added, // 🆕 eklenme zamanı
+        tracker: torrent.announce?.[0] || null,
+        added,
+        savePath, // 🆕 BURASI!
         files: torrent.files.map((f, i) => ({
           index: i,
           name: f.name,
@@ -155,6 +156,11 @@ app.post("/api/transfer", requireAuth, upload.single("torrent"), (req, res) => {
           length: f.length
         }))
       });
+      const data = JSON.stringify({
+        type: "progress",
+        torrents: snapshot()
+      });
+      wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
     });
 
     // --- İndirme tamamlandığında thumbnail oluştur ---
@@ -526,10 +532,13 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "progress", torrents: snapshot() }));
 });
 
+// --- ⏱️ Her 2 saniyede bir aktif torrent durumu yayınla ---
 setInterval(() => {
-  const data = JSON.stringify({ type: "progress", torrents: snapshot() });
-  wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
-}, 1000);
+  if (torrents.size > 0) {
+    const data = JSON.stringify({ type: "progress", torrents: snapshot() });
+    wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
+  }
+}, 2000);
 
 client.on("error", (err) => {
   if (!String(err).includes("uTP"))

@@ -453,16 +453,16 @@ body,
 /* 🌫️ Thumbnail fade-in + blur efekti */
 /* 🌫️ Fade-in thumbnail efekti — sadece img'ler için geçerli */
 img.thumb {
-  opacity: 0;
-  filter: blur(10px) brightness(0.9);
-  transform: scale(1.03);
-  transition: opacity 0.6s ease, filter 1s ease, transform 0.6s ease;
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: none;
 }
 
 img.thumb.loaded {
   opacity: 1;
-  filter: blur(0) brightness(1);
-  transform: scale(1);
+  filter: none;
+  transform: none;
 }
 
 /* 🪄 Placeholder her zaman görünür */
