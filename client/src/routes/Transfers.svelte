@@ -60,11 +60,12 @@
     ws?.send(JSON.stringify({ type: "select", infoHash: hash, index }));
   }
 
-  async function removeTorrent(hash) {
-    if (!confirm("Bu transferi silmek istediğine emin misin?")) return;
-    await apiFetch(`/api/torrents/${hash}`, { method: "DELETE" }); // ✅
-    await list();
-  }
+async function removeTorrent(hash) {
+  if (!confirm("Bu transferi silmek istediğine emin misin?")) return;
+  await apiFetch(`/api/torrents/${hash}`, { method: "DELETE" });
+  torrents = torrents.filter(t => t.infoHash !== hash);
+  await list();
+}
 
   function streamURL(hash, index = 0) {
     const token = localStorage.getItem("token");

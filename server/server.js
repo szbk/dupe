@@ -288,6 +288,67 @@ app.get("/media/:path(*)", requireAuth, (req, res) => {
   }
 });
 
+// --- 🗑️ Tekil dosya veya torrent klasörü silme ---
+app.delete("/api/file", requireAuth, (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath) return res.status(400).json({ error: "path gerekli" });
+
+  const fullPath = path.join(DOWNLOAD_DIR, filePath);
+  if (!fs.existsSync(fullPath))
+    return res.status(404).json({ error: "Dosya bulunamadı" });
+
+  try {
+    // 1) Dosya/klasörü sil
+    fs.rmSync(fullPath, { recursive: true, force: true });
+    console.log(`🗑️ Dosya/klasör silindi: ${fullPath}`);
+
+    // 2) İlk segment (klasör adı) => folderId (örn: "1730048432921")
+    const folderId = (filePath.split(/[\\/]/)[0] || "").trim();
+
+    // 3) torrents Map’inde, savePath'in son klasörü folderId olan entry’yi bul
+    let matchedInfoHash = null;
+    for (const [infoHash, entry] of torrents.entries()) {
+      const lastDir = path.basename(entry.savePath);
+      if (lastDir === folderId) {
+        matchedInfoHash = infoHash;
+        break;
+      }
+    }
+
+    // 4) Eşleşen torrent varsa destroy + Map’ten sil + snapshot yayınla
+    if (matchedInfoHash) {
+      const entry = torrents.get(matchedInfoHash);
+      entry?.torrent?.destroy(() => {
+        torrents.delete(matchedInfoHash);
+        console.log(`🧹 Torrent kaydı da temizlendi: ${matchedInfoHash}`);
+        // anında WebSocket güncellemesi (broadcastSnapshot global fonksiyonunu kullanıyorsan onu çağır)
+        if (typeof broadcastSnapshot === "function") {
+          broadcastSnapshot();
+        } else if (wss) {
+          const data = JSON.stringify({
+            type: "progress",
+            torrents: snapshot()
+          });
+          wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
+        }
+      });
+    } else {
+      // Torrent eşleşmediyse de listeyi tazele (ör. sade dosya silinmiştir)
+      if (typeof broadcastSnapshot === "function") {
+        broadcastSnapshot();
+      } else if (wss) {
+        const data = JSON.stringify({ type: "progress", torrents: snapshot() });
+        wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ Dosya silinemedi:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- 📁 Dosya gezgini (🆕 type ve url alanları eklendi; resim thumb'ı) ---
 app.get("/api/files", requireAuth, (req, res) => {
   // --- 🧩 .ignoreFiles içeriğini oku ---

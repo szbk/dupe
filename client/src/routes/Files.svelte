@@ -188,6 +188,41 @@
     reader.readAsArrayBuffer(file);
   }
 
+  async function deleteFile(file) {
+    const token = localStorage.getItem("token");
+    if (!confirm("Bu dosyayı silmek istediğine emin misin?")) return;
+
+    // 1️⃣ Önce dosyayı backend'den sil
+    const resp = await fetch(
+      `${API}/api/file?path=${encodeURIComponent(file.name)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    if (resp.ok) {
+      console.log("🗑️ Dosya silindi:", file.name);
+      files = files.filter((f) => f.name !== file.name);
+
+      // 2️⃣ Ek olarak Transfers listesindeki torrent'i de sil
+      // hash = dosya yolundaki ilk klasör (örnek: downloads/<hash>/video.mp4)
+      const hash = file.name.split("/")[0];
+      console.log("🔄 Transfers listesinden de siliyorum:", hash);
+      try {
+        await fetch(`${API}/api/torrents/${hash}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (err) {
+        console.warn("⚠️ Transfers tarafı silinemedi:", err);
+      }
+    } else {
+      const data = await resp.json();
+      alert("Silme hatası: " + (data.error || resp.statusText));
+    }
+  }
+
   onMount(() => {
     loadFiles();
     // ✅ Tek event handler içinde hem Esc hem ok tuşlarını kontrol et
@@ -243,6 +278,12 @@
             {:else if f.type?.startsWith("image/")}
               <i class="fa-solid fa-image"></i>
             {/if}
+          </div>
+          <div
+            class="delete-overlay"
+            on:click|stopPropagation={() => deleteFile(f)}
+          >
+            <i class="fa-solid fa-trash"></i>
           </div>
         </div>
       {/each}
@@ -515,6 +556,45 @@
     filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.3));
   }
 
+  /* === DELETE OVERLAY (alt kısımda) === */
+  .delete-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px; /* 🔹 alt kısmın yüksekliği */
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+  }
+
+  /* Hover olunca görünür */
+  .media-card:hover .delete-overlay {
+    opacity: 1;
+  }
+
+  /* 🗑️ ikonu hover efekti */
+  .delete-overlay i {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    padding: 8px 10px;
+    transition:
+      transform 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .delete-overlay i:hover {
+    transform: scale(1.2);
+    background: rgba(255, 255, 255, 0.35);
+  }
   /* === RESPONSIVE === */
   @media (max-width: 768px) {
     .gallery {
